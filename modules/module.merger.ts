@@ -286,6 +286,12 @@ class Merger {
     }
 
     if (this.options.subtitles.length > 0) {
+      // START OF CHANGE: New logic for default subtitle selection
+      const hasEngSignSub = this.options.subtitles.some(s => s.language.code === 'eng' && s.signs === true);
+      const isDefaultAudioEng = this.options.defaults.audio.code === 'eng';
+      const makeEngSignsDefault = hasEngSignSub && (hasEngSignSub || isDefaultAudioEng);
+      // END OF CHANGE
+
       for (const subObj of this.options.subtitles) {
         if (subObj.delay) {
           args.push(
@@ -294,12 +300,24 @@ class Merger {
         }
         args.push('--track-name', `0:"${(subObj.language.language || subObj.language.name) + `${subObj.closedCaption === true ? ` ${this.options.ccTag}` : ''}` + `${subObj.signs === true ? ' Signs' : ''}`}"`);
         args.push('--language', `0:"${subObj.language.code}"`);
-        //TODO: look into making Closed Caption default if it's the only sub of the default language downloaded
-        if (this.options.defaults.sub.code === subObj.language.code && !subObj.closedCaption) {
-          args.push('--default-track 0');
+
+        // START OF CHANGE: Set default track based on new logic
+        if (makeEngSignsDefault) {
+          // If conditions are met, make English Signs default and all others not default.
+          if (subObj.language.code === 'eng' && subObj.signs === true) {
+            args.push('--default-track 0');
+          } else {
+            args.push('--default-track 0:0');
+          }
         } else {
-          args.push('--default-track 0:0');
+          // Fallback to original logic if conditions for new rule are not met.
+          if (this.options.defaults.sub.code === subObj.language.code && !subObj.closedCaption) {
+            args.push('--default-track 0');
+          } else {
+            args.push('--default-track 0:0');
+          }
         }
+        // END OF CHANGE
         args.push(`"${subObj.file}"`);
       }
     } else {
