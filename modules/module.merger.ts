@@ -287,9 +287,23 @@ class Merger {
 
     if (this.options.subtitles.length > 0) {
       // START OF CHANGE: New logic for default subtitle selection
-      const hasEngSignSub = this.options.subtitles.some(s => s.language.code === 'eng' && s.signs === true);
+      // Define flags to check conditions
       const isDefaultAudioEng = this.options.defaults.audio.code === 'eng';
-      const makeEngSignsDefault = hasEngSignSub && (hasEngSignSub || isDefaultAudioEng);
+      const hasEngSignSub = this.options.subtitles.some(s => s.language.code === 'eng' && s.signs === true);
+      const hasRegularEngSub = this.options.subtitles.some(s => s.language.code === 'eng' && !s.signs && !s.closedCaption);
+
+      // Determine which type of subtitle should be the default based on the new priority rules.
+      let defaultSubType: 'signs' | 'regular' | 'none' = 'none';
+      
+      // Priority 1: Set English Signs as default if default audio is English OR a signs sub is available.
+      // (This rule can only be applied if an English Signs sub actually exists).
+      if ((isDefaultAudioEng || hasEngSignSub) && hasEngSignSub) {
+        defaultSubType = 'signs';
+      } 
+      // Priority 2: Otherwise, if a regular English sub is available, set that as default.
+      else if (hasRegularEngSub) {
+        defaultSubType = 'regular';
+      }
       // END OF CHANGE
 
       for (const subObj of this.options.subtitles) {
@@ -301,23 +315,35 @@ class Merger {
         args.push('--track-name', `0:"${(subObj.language.language || subObj.language.name) + `${subObj.closedCaption === true ? ` ${this.options.ccTag}` : ''}` + `${subObj.signs === true ? ' Signs' : ''}`}"`);
         args.push('--language', `0:"${subObj.language.code}"`);
 
-        // START OF CHANGE: Set default track based on new logic
-        if (makeEngSignsDefault) {
-          // If conditions are met, make English Signs default and all others not default.
+        // START OF CHANGE: Set default track based on the determined subtitle type
+        let isThisTrackDefault = false;
+
+        if (defaultSubType === 'signs') {
+          // If the target is 'signs', mark the English Signs sub as default.
           if (subObj.language.code === 'eng' && subObj.signs === true) {
-            args.push('--default-track 0');
-          } else {
-            args.push('--default-track 0:0');
+            isThisTrackDefault = true;
+          }
+        } else if (defaultSubType === 'regular') {
+          // If the target is 'regular', mark the first regular English sub as default.
+          if (subObj.language.code === 'eng' && !subObj.signs && !subObj.closedCaption) {
+            isThisTrackDefault = true;
+            // Set type to 'none' to ensure only the FIRST regular English sub is made default.
+            defaultSubType = 'none';
           }
         } else {
-          // Fallback to original logic if conditions for new rule are not met.
+          // Fallback to the original general logic if no special rules were applied.
           if (this.options.defaults.sub.code === subObj.language.code && !subObj.closedCaption) {
-            args.push('--default-track 0');
-          } else {
-            args.push('--default-track 0:0');
+            isThisTrackDefault = true;
           }
         }
+
+        if (isThisTrackDefault) {
+          args.push('--default-track 0');
+        } else {
+          args.push('--default-track 0:0');
+        }
         // END OF CHANGE
+        
         args.push(`"${subObj.file}"`);
       }
     } else {
