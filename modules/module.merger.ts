@@ -296,26 +296,29 @@ class Merger {
         args.push('--language', `0:"${subObj.language.code}"`);
         
         let isDefault = false;
-        let isForced = false;
+        const isDefaultAudioEnglish = this.options.defaults.audio.code === 'eng';
 
-        // Check if the current subtitle is the "English Signs" track
-        if (subObj.language.code === 'eng' && subObj.signs === true) {
+        // Conditional logic for English subtitles
+        if (subObj.language.code === 'eng') {
+          if (isDefaultAudioEnglish && subObj.signs === true) {
+            // If default audio is English, make the "Signs" subtitle default
             isDefault = true;
-            isForced = true;
-        }
-        
-        // Set the default flag
-        if (isDefault) {
-            args.push('--default-track-flag 0:1');
+          } else if (!isDefaultAudioEnglish && !subObj.signs) {
+            // If default audio is NOT English, make the main English subtitle default
+            isDefault = true;
+          }
         } else {
-            args.push('--default-track-flag 0:0');
+          // Fallback to original logic for all other languages
+          if (this.options.defaults.sub.code === subObj.language.code && !subObj.closedCaption) {
+            isDefault = true;
+          }
         }
 
-        // Set the forced flag
-        if (isForced) {
-            args.push('--forced-track-flag 0:1');
+        // Set the default flag using the corrected syntax
+        if (isDefault) {
+          args.push('--default-track', '0:1');
         } else {
-            args.push('--forced-track-flag 0:0');
+          args.push('--default-track', '0:0');
         }
         
         args.push(`"${subObj.file}"`);
