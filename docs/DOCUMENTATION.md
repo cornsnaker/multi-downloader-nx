@@ -51,7 +51,7 @@ Allows you to login with your token (Example on crunchy is Refresh Token/etp-rt 
 #### `--dlFonts`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
 | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--dlFonts ` | `boolean` | `No`| `NaN` | `NaN` |
+| Crunchyroll, Hidive | `--dlFonts ` | `boolean` | `No`| `NaN` | `NaN` |
 
 Crunchyroll uses a variaty of fonts for the subtitles.
 Use this command to download all the fonts and add them to the muxed **mkv** file.
@@ -61,6 +61,13 @@ Use this command to download all the fonts and add them to the muxed **mkv** fil
 | Hidive, AnimationDigitalNetwork | `--fontName ${fontName}` | `string` | `No`| `NaN` | `NaN` |
 
 Set the font to use in subtiles
+#### `--noFontSubstitute`
+| **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
+| --- | --- | --- | --- | --- | --- | ---| 
+| Hidive | `--noFontSubstitute ` | `boolean` | `No`| `NaN` | `false`| `noFontSubstitute: ` |
+
+HIDIVE subtitles use fonts like "Swis721 BT" that cannot be downloaded. By default these are replaced with a similar font (e.g. Arial) so the muxed file looks the same everywhere.
+Put the original font files into the fonts folder to have them attached instead.
 ### Search
 #### `--search`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
@@ -242,7 +249,7 @@ Disables VTT conversion to ASS.
 #### `--noSubFix`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--noSubFix ` | `boolean` | `No`| `NaN` | `false`| `noSubFix: ` |
+| Crunchyroll, Hidive | `--noSubFix ` | `boolean` | `No`| `NaN` | `false`| `noSubFix: ` |
 
 Disables all subtitle fixes and downloads raw subtitles.
 #### `--srtAssFix`
@@ -254,19 +261,19 @@ Fixes the recently changed Crunchyroll subtitles provided by Closed Caption Conv
 #### `--layoutResFix`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--layoutResFix ` | `boolean` | `No`| `NaN` | `true`| `layoutResFix: ` |
+| Crunchyroll, Hidive | `--layoutResFix ` | `boolean` | `No`| `NaN` | `true`| `layoutResFix: ` |
 
 Applies the LayoutRes Fix to all ASS subtitles.
 #### `--scaledBorderAndShadowFix`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--scaledBorderAndShadowFix ` | `boolean` | `No`| `NaN` | `true`| `scaledBorderAndShadowFix: ` |
+| Crunchyroll, Hidive | `--scaledBorderAndShadowFix ` | `boolean` | `No`| `NaN` | `true`| `scaledBorderAndShadowFix: ` |
 
 Applies the ScaledBorderAndShadow Fix to all ASS subtitles.
 #### `--scaledBorderAndShadow`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** | **Choices** | **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll | `--scaledBorderAndShadow ${yes/no}` | `string` | `No`| `NaN` | [`yes`, `no`] | `yes`| `scaledBorderAndShadow: ` |
+| Crunchyroll, Hidive | `--scaledBorderAndShadow ${yes/no}` | `string` | `No`| `NaN` | [`yes`, `no`] | `yes`| `scaledBorderAndShadow: ` |
 
 Select if ScaledBorderAndShadow should be set to "yes" or "no".
 #### `--originalScriptFix`
