@@ -793,7 +793,10 @@ export default class Hidive implements ServiceClass {
 		const variables: Variable[] = [];
 		let dlFailed = false;
 		const subsMargin = 0;
-		const chosenFontSize = options.originalFontSize ? undefined : options.fontSize;
+		// HIDIVE VTT font sizes are relative (em), so this is the base dialogue size at 1280x720.
+		// 48 matches Crunchyroll's dialogue size (24 at 640x360); the old base was 34.
+		// Use --originalFontSize false --fontSize <n> to pick another base size.
+		const chosenFontSize = options.originalFontSize ? 48 : options.fontSize;
 		let encryptionKeys: KeyContainer[] = [];
 		if (!canDecrypt && (!options.novids || !options.noaudio)) {
 			console.error('No valid Widevine or PlayReady CDM detected. Please ensure a supported and functional CDM is installed.');
@@ -917,9 +920,11 @@ export default class Hidive implements ServiceClass {
 
 		// Chapters from the HIDIVE skip markers (intro / credits)
 		if (options.chapters) {
-			if (this.debug) console.debug('[DEBUG] Skip markers:', JSON.stringify(skipMarkers));
+			console.info('Skip markers:', JSON.stringify(skipMarkers));
 			const rawDuration = (selectedEpisode as { duration?: number }).duration;
-			const durationSec = rawDuration && rawDuration > 0 ? (rawDuration > 36000 ? rawDuration / 1000 : rawDuration) : undefined;
+			// episode length: from the API, otherwise the sum of the video segment durations
+			const segmentsDuration = chosenVideoSegments.segments.reduce((sum, seg) => sum + (Number((seg as { duration?: number }).duration) || 0), 0);
+			const durationSec = rawDuration && rawDuration > 0 ? (rawDuration > 36000 ? rawDuration / 1000 : rawDuration) : segmentsDuration > 0 ? segmentsDuration : undefined;
 			const chapterLines = buildHidiveChapters(skipMarkers, durationSec);
 			if (chapterLines.length > 0) {
 				const chapterBase = path.isAbsolute(fileName) ? fileName : path.join(this.cfg.dir.content, fileName);
@@ -1182,6 +1187,11 @@ export default class Hidive implements ServiceClass {
 
 							if (!options.noASSConv) {
 								sBody = vtt2ass(undefined, chosenFontSize, sBody, '', subsMargin, options.fontName, options.combineLines);
+								// vtt2ass uses a 2.6 dialogue outline made for size 34; keep the outline in proportion to the font size
+								if (chosenFontSize && chosenFontSize !== 34) {
+									const outline = parseFloat(((2.6 * chosenFontSize) / 34).toFixed(1));
+									sBody = sBody.replace(/^(Style:\s*(?:[^,\n]*,){16})2\.6(?=,)/gm, `$1${outline}`);
+								}
 								if (!options.noSubFix) {
 									// Same ASS clean-up as Crunchyroll (LayoutRes, ScaledBorderAndShadow, ...)
 									sBody = applyAssFixes(sBody, {

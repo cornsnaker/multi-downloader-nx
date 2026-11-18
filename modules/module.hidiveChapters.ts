@@ -2,15 +2,17 @@
  * Build OGM style chapters (CHAPTER01=00:00:00.000 / CHAPTER01NAME=Episode) from the
  * `skipMarkers` array of the HIDIVE playback response.
  *
- * The marker format is not documented, so the parser accepts the common field names
- * (type/name, startTime/start/startMs, endTime/end/endMs) in seconds, milliseconds or hh:mm:ss.
+ * The marker format is not documented, so fields are matched by name (start/begin, end/stop,
+ * duration, type/name/label) in seconds, milliseconds or hh:mm:ss. Markers without a known type
+ * are named by their position (start of episode = Intro, last quarter = Credits).
  */
 
-type Marker = { name: string; start: number; end?: number };
+type Marker = { name: string; start: number; end?: number; raw: unknown };
 
-const typeKeys = ['type', 'markerType', 'skipType', 'kind', 'category', 'name', 'label', 'title'];
-const startKeys = ['startTime', 'start', 'startMs', 'startTimeMs', 'startOffset', 'begin', 'from', 'in', 'timeIn'];
-const endKeys = ['endTime', 'end', 'endMs', 'endTimeMs', 'endOffset', 'stop', 'to', 'out', 'timeOut'];
+const startKey = /start|begin|^from$|^in$|timein/i;
+const endKey = /end|stop|finish|^to$|^out$|timeout/i;
+const lengthKey = /duration|length/i;
+const typeKey = /type|kind|name|label|title|category/i;
 
 function toNumber(v: unknown): number | undefined {
 	if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -23,22 +25,28 @@ function toNumber(v: unknown): number | undefined {
 	return undefined;
 }
 
-function pick(obj: Record<string, unknown>, keys: string[]): { key: string; value: number } | undefined {
-	for (const key of keys) {
-		const value = toNumber(obj[key]);
-		if (value !== undefined) return { key, value };
+// flatten one level of nesting: { range: { start: 1 } } -> { 'range.start': 1 }
+function flatten(obj: Record<string, unknown>): [string, unknown][] {
+	const out: [string, unknown][] = [];
+	for (const [k, v] of Object.entries(obj)) {
+		if (v && typeof v === 'object' && !Array.isArray(v)) {
+			for (const [k2, v2] of Object.entries(v as Record<string, unknown>)) out.push([`${k}.${k2}`, v2]);
+		} else {
+			out.push([k, v]);
+		}
 	}
-	return undefined;
+	return out;
 }
 
-function chapterName(raw: string): string {
+const lastPart = (key: string) => key.split('.').pop() ?? key;
+
+function chapterName(raw: string): string | undefined {
 	const t = raw.toLowerCase().replace(/[^a-z]/g, '');
-	if (/intro|opening|^op$|openingcredits/.test(t)) return 'Intro';
-	if (/credit|outro|ending|^ed$|endcredits/.test(t)) return 'Credits';
+	if (/intro|opening|^op$/.test(t)) return 'Intro';
+	if (/credit|outro|ending|closing|^ed$/.test(t)) return 'Credits';
 	if (/recap/.test(t)) return 'Recap';
-	if (/preview|nextepisode/.test(t)) return 'Preview';
-	if (!raw) return 'Chapter';
-	return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+	if (/preview|nextepisode|next/.test(t)) return 'Preview';
+	return undefined;
 }
 
 function formatTime(sec: number): string {
@@ -52,23 +60,48 @@ function formatTime(sec: number): string {
 
 /** Parse skip markers into chapters sorted by start time (seconds). */
 export function parseSkipMarkers(skipMarkers: unknown, durationSec?: number): Marker[] {
-	if (!Array.isArray(skipMarkers)) return [];
+	// accept an array of markers or an object map like { intro: { start, end } }
+	let items: [string, unknown][] = [];
+	if (Array.isArray(skipMarkers)) items = skipMarkers.map((m) => ['', m]);
+	else if (skipMarkers && typeof skipMarkers === 'object') items = Object.entries(skipMarkers as Record<string, unknown>);
+
 	const markers: Marker[] = [];
-	for (const item of skipMarkers) {
+	for (const [mapKey, item] of items) {
 		if (!item || typeof item !== 'object') continue;
-		const obj = item as Record<string, unknown>;
-		const start = pick(obj, startKeys);
+		const fields = flatten(item as Record<string, unknown>);
+		const num = (rx: RegExp, exclude?: RegExp) => {
+			for (const [k, v] of fields) {
+				const key = lastPart(k);
+				if (!rx.test(key) || (exclude && exclude.test(key))) continue;
+				const value = toNumber(v);
+				if (value !== undefined) return { key, value };
+			}
+			return undefined;
+		};
+		const start = num(startKey);
 		if (!start) continue;
-		const end = pick(obj, endKeys);
-		const typeKey = typeKeys.find((k) => typeof obj[k] === 'string' && (obj[k] as string).trim() !== '');
-		// decide the unit: explicit *Ms keys are milliseconds, otherwise values far past the episode length are too
-		const looksMs = (key: string, value: number) => /ms$/i.test(key) || (durationSec ? value > durationSec * 1.5 && value / 1000 <= durationSec * 1.5 : value > 36000);
+		const end = num(endKey, startKey);
+		const length = num(lengthKey);
+
+		// name: a type-like field, any string value that names a known chapter, or the map key
+		let name: string | undefined;
+		for (const [k, v] of fields) if (typeof v === 'string' && typeKey.test(lastPart(k))) name ??= chapterName(v);
+		for (const [, v] of fields) if (typeof v === 'string') name ??= chapterName(v);
+		if (mapKey) name ??= chapterName(mapKey);
+
+		// unit: explicit *Ms keys are milliseconds, otherwise values far past the episode length are too
+		const looksMs = (key: string, value: number) => /ms$|millis/i.test(key) || (durationSec ? value > durationSec * 1.5 && value / 1000 <= durationSec * 1.5 : value > 36000);
 		const toSec = (p: { key: string; value: number }) => (looksMs(p.key, p.value) ? p.value / 1000 : p.value);
-		markers.push({
-			name: chapterName(typeKey ? (obj[typeKey] as string).trim() : ''),
-			start: toSec(start),
-			end: end ? toSec(end) : undefined
-		});
+		const startSec = toSec(start);
+		const endSec = end ? toSec(end) : length ? startSec + toSec(length) : undefined;
+
+		// no recognisable type: guess from the position in the episode
+		if (!name) {
+			if (durationSec && startSec >= durationSec * 0.75) name = 'Credits';
+			else if (durationSec && startSec <= durationSec * 0.25) name = 'Intro';
+			else name = 'Chapter';
+		}
+		markers.push({ name, start: startSec, end: endSec, raw: item });
 	}
 	return markers.filter((m) => m.start >= 0 && (m.end === undefined || m.end > m.start)).sort((a, b) => a.start - b.start);
 }
