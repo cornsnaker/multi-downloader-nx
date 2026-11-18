@@ -1231,7 +1231,12 @@ export default class Hidive implements ServiceClass {
 								...(sxData as sxItem),
 								cc: false
 							});
-							if (signsAss && options.signsTrack) {
+							// The signs-only track is meant for the English dub, so only add it when that dub is downloaded
+							const hasEnglishDub = !options.noaudio && chosenAudios.some((a) => a.language.code === 'eng');
+							if (signsAss && options.signsTrack && !hasEnglishDub) {
+								console.info('Signs track skipped: no English dub selected');
+							}
+							if (signsAss && options.signsTrack && hasEnglishDub) {
 								const signsFile = langsData.subsFile(fileName as string, subIndex + '', subLang, false, options.ccTag, true);
 								const signsPath = path.isAbsolute(signsFile) ? signsFile : path.join(this.cfg.dir.content, signsFile);
 								fs.writeFileSync(signsPath, signsAss);
@@ -1282,6 +1287,14 @@ export default class Hidive implements ServiceClass {
 		if (!options.mp4 && !options.skipSubMux && subsForFonts.length > 0) {
 			await downloadFonts(this.cfg.dir.fonts, fontFilesFor(subsForFonts.flatMap((s) => s.fonts ?? [])), this.req, true);
 		}
+		// With an English dub: English audio first and default, the signs track first and default
+		const englishAudio = data.find((a) => a.type === 'Audio' && a.lang.code === 'eng') as Extract<DownloadedMedia, { type: 'Audio' }> | undefined;
+		const audioTracks = data
+			.filter((a): a is Extract<DownloadedMedia, { type: 'Audio' }> => a.type === 'Audio')
+			.sort((a, b) => Number(b.lang.code === 'eng') - Number(a.lang.code === 'eng'));
+		const subtitleTracks = data
+			.filter((a): a is Extract<DownloadedMedia, { type: 'Subtitle' }> => a.type === 'Subtitle')
+			.sort((a, b) => (englishAudio ? Number(!!b.signs) - Number(!!a.signs) : 0));
 		const merger = new Merger({
 			onlyVid: hasAudioStreams
 				? data
@@ -1298,29 +1311,24 @@ export default class Hidive implements ServiceClass {
 			inverseTrackOrder: inverseTrackOrder,
 			keepAllVideos: options.keepAllVideos,
 			onlyAudio: hasAudioStreams
-				? data
-						.filter((a) => a.type === 'Audio')
-						.map((a): MergerInput => {
-							if (a.type === 'Subtitle') throw new Error('Never');
-							return {
-								lang: a.lang,
-								path: a.path
-							};
-						})
+				? audioTracks.map((a): MergerInput => {
+						return {
+							lang: a.lang,
+							path: a.path
+						};
+					})
 				: [],
 			output: `${options.output}.${options.mp4 ? 'mp4' : 'mkv'}`,
-			subtitles: data
-				.filter((a) => a.type === 'Subtitle')
-				.map((a): SubtitleInput => {
-					if (a.type === 'Video') throw new Error('Never');
-					if (a.type === 'Audio') throw new Error('Never');
-					return {
-						file: a.path,
-						language: a.language,
-						closedCaption: a.cc,
-						signs: a.signs
-					};
-				}),
+			subtitles: subtitleTracks.map((a): SubtitleInput => {
+				return {
+					file: a.path,
+					language: a.language,
+					closedCaption: a.cc,
+					signs: a.signs,
+					// with an English dub the signs track is the default subtitle, otherwise use --defaultSub
+					isDefault: englishAudio ? !!a.signs : undefined
+				};
+			}),
 			simul: data
 				.filter((a) => a.type === 'Video')
 				.map((a): boolean => {
@@ -1351,7 +1359,7 @@ export default class Hidive implements ServiceClass {
 				mkvmerge: options.mkvmergeOptions
 			},
 			defaults: {
-				audio: options.defaultAudio,
+				audio: englishAudio ? englishAudio.lang : options.defaultAudio,
 				sub: options.defaultSub
 			},
 			ccTag: options.ccTag

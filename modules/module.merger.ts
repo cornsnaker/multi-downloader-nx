@@ -25,6 +25,8 @@ export type SubtitleInput = {
 	closedCaption?: boolean;
 	signs?: boolean;
 	delay?: number;
+	/** force the default flag on (true) or off (false); undefined uses defaults.sub */
+	isDefault?: boolean;
 };
 
 export type Font = keyof typeof fontFamilies;
@@ -292,7 +294,8 @@ class Merger {
 				);
 				args.push('--language', `0:"${subObj.language.code}"`);
 				//TODO: look into making Closed Caption default if it's the only sub of the default language downloaded
-				if (this.options.defaults.sub.code === subObj.language.code && !subObj.closedCaption && !subObj.signs) {
+				const isDefault = subObj.isDefault ?? (this.options.defaults.sub.code === subObj.language.code && !subObj.closedCaption && !subObj.signs);
+				if (isDefault) {
 					args.push('--default-track 0');
 				} else {
 					args.push('--default-track 0:0');
