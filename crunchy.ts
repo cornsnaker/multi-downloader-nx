@@ -38,6 +38,8 @@ import { parse } from './modules/module.transform-mpd';
 import { AndroidObject, CrunchyAndroidObject, CrunchyMVObject } from './@types/crunchyAndroidObject';
 import { CrunchyChapters, CrunchyChapter, CrunchyOldChapter } from './@types/crunchyChapters';
 import vtt2ass from './modules/module.vtt2ass';
+import { applyAssFixes } from './modules/module.assFix';
+import { downloadAllFonts } from './modules/module.fontDownload';
 import { CrunchyPlayStream } from './@types/crunchyPlayStreams';
 import { CrunchyVideoPlayStreams, CrunchyAudioPlayStreams } from './@types/enums';
 import { randomUUID } from 'node:crypto';
@@ -336,35 +338,7 @@ export default class Crunchy implements ServiceClass {
 	}
 
 	public async getFonts() {
-		console.info('Downloading fonts...');
-		const fonts = Object.values(fontsData.fontFamilies).reduce((pre, curr) => pre.concat(curr));
-		for (const f of fonts) {
-			const fontLoc = path.join(this.cfg.dir.fonts, f);
-			if (fs.existsSync(fontLoc) && fs.statSync(fontLoc).size != 0) {
-				console.info(`${f} already downloaded!`);
-			} else {
-				const fontFolder = path.dirname(fontLoc);
-				if (fs.existsSync(fontLoc) && fs.statSync(fontLoc).size == 0) {
-					fs.rmSync(fontLoc, { recursive: true, force: true });
-				}
-				try {
-					fs.existsSync(fontFolder);
-				} catch (e) {
-					console.info('');
-				}
-				const fontUrl = fontsData.root + f;
-				const getFont = await this.req.getData(fontUrl, {
-					headers: api.crunchyDefHeader
-				});
-				if (getFont.ok && getFont.res) {
-					fs.writeFileSync(fontLoc, Buffer.from(await getFont.res.arrayBuffer()));
-					console.info(`Downloaded: ${f}`);
-				} else {
-					console.warn(`Failed to download: ${f}`);
-				}
-			}
-		}
-		console.info('All required fonts downloaded!');
+		await downloadAllFonts(this.cfg.dir.fonts, this.req);
 	}
 
 	public async doAuth(data: AuthData): Promise<AuthResponse> {
@@ -2945,73 +2919,16 @@ export default class Crunchy implements ServiceClass {
 									}
 
 									if (!options.noSubFix) {
-										// LayoutRes Fix
-										if (options.layoutResFix && !sBody.includes('LayoutResX') && !sBody.includes('LayoutResY')) {
-											sBody = sBody.replace(/^(PlayResY:\s*\d+)/m, `$1\nLayoutResX: ${playResX}\nLayoutResY: ${playResY}`);
-										}
-
-										// ScaleBorderAndShadow Fix (True and doesn't exist)
-										if (options.scaledBorderAndShadowFix && !sBody.includes('ScaledBorderAndShadow')) {
-											sBody = sBody.replace(/^(WrapStyle:.*)$/m, `$1\nScaledBorderAndShadow: ${options.scaledBorderAndShadow}`);
-										}
-
-										// ScaleBorderAndShadow Fix (True and exists)
-										if (options.scaledBorderAndShadowFix && sBody.includes('ScaledBorderAndShadow')) {
-											sBody = sBody.replace(/ScaledBorderAndShadow:\s*(yes|no)/, `ScaledBorderAndShadow: ${options.scaledBorderAndShadow}`);
-										}
-
-										// Fix VLC wrong parsing if URL not avaiable
-										if (options.originalScriptFix) {
-											sBody = sBody.replace(/^Original Script:.*$/gm, 'Original Script: Crunchyroll');
-										}
-
-										// Remove All Comments
-										sBody = sBody.replace(/^[ \t]*;.*\r?\n?/gm, '');
-
-										// Remove Aegisub Project Garbage
-										sBody = sBody.replace(/\[Aegisub Project Garbage\][\s\S]*?(?:\r?\n(?=\[)|$)/, '');
-
-										// Remove YCbCr
-										sBody = sBody.replace(/^[ \t]*YCbCr Matrix:\s*.*\r?\n?/m, '');
-
-										// Make sure no Dialogue timestamp goes over video length
-										if (options.subtitleTimestampFix && mMeta?.durationMs && mMeta.durationMs > 15000) {
-											const lines = sBody.split('\n');
-											const newLines: string[] = [];
-											const durationS = mMeta.durationMs / 1000;
-
-											const toSec = (t: string) => {
-												const [h, m, s] = t.replace(',', '.').split(/[:.]/).map(Number);
-												return h * 3600 + m * 60 + s;
-											};
-
-											for (let line of lines) {
-												if (line.startsWith('Dialogue:')) {
-													const parts = line.split(',');
-													const start = parts[1];
-													const end = parts[2];
-
-													const s = toSec(start);
-													const e = toSec(end);
-
-													// If start time is longer than durationS skip the subtitle line completely
-													if (s > durationS) continue;
-
-													// If only end time is longer than durationS short it down
-													if (e > durationS) {
-														const h = String(Math.floor(durationS / 3600));
-														const m = String(Math.floor((durationS % 3600) / 60)).padStart(2, '0');
-														const sec = (durationS % 60).toFixed(2).padStart(5, '0');
-														parts[2] = `${h}:${m}:${sec}`;
-														line = parts.join(',');
-													}
-												}
-
-												newLines.push(line);
-											}
-
-											sBody = newLines.join('\n');
-										}
+										sBody = applyAssFixes(sBody, {
+											playResX,
+											playResY,
+											layoutResFix: options.layoutResFix,
+											scaledBorderAndShadowFix: options.scaledBorderAndShadowFix,
+											scaledBorderAndShadow: options.scaledBorderAndShadow,
+											originalScriptFix: options.originalScriptFix,
+											subtitleTimestampFix: options.subtitleTimestampFix,
+											durationMs: mMeta?.durationMs
+										});
 
 										// Force outline thickness for ru-RU: if the 17th field (Outline) equals 2.6 → 2
 										if (langItem.cr_locale === 'ru-RU') {

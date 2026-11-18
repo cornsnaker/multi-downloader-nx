@@ -524,8 +524,8 @@ export default function vtt2ass(
 	relGroup = group ?? '';
 	fontSize = xFontSize && xFontSize > 0 ? xFontSize : 34; // 1em to pix
 	tmMrg = timeMargin ? timeMargin : 0; //
-	rFont = replaceFont ? replaceFont : rFont;
-	doCombineLines = combineLines ? combineLines : doCombineLines;
+	rFont = replaceFont ? replaceFont : '';
+	doCombineLines = combineLines ? combineLines : false;
 	if (vttStr.match(/::cue(?:.(.+)\) *)?{([^}]+)}/g)) {
 		const cssLines = [];
 		let defaultCss = '';
