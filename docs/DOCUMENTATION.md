@@ -175,7 +175,7 @@ This will speed up the download speed, if multiple languages are selected.
 #### `--chapters`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | ---| 
-| Crunchyroll, AnimationDigitalNetwork | `--chapters ` | `boolean` | `No`| `NaN` | `true`| `chapters: ` |
+| Crunchyroll, Hidive, AnimationDigitalNetwork | `--chapters ` | `boolean` | `No`| `NaN` | `true`| `chapters: ` |
 
 Will fetch the chapters and add them into the final video.
 #### `--removeBumpers`
@@ -356,6 +356,12 @@ Set the time the program waits between downloads. Set in millisecods
 | Hidive | `--simul ` | `boolean` | `No`| `NaN` | `false`| `simul: ` |
 
 Force downloading simulcast version instead of uncut version (if available).
+#### `--signsTrack`
+| **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
+| --- | --- | --- | --- | --- | --- | ---| 
+| Hidive | `--signsTrack ` | `boolean` | `No`| `NaN` | `true`| `signsTrack: ` |
+
+Add an extra subtitle track that only contains the signs / on-screen text (useful with dubbed audio)
 #### `--but`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **cli-default Entry**
 | --- | --- | --- | --- | --- | ---| 
