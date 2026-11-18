@@ -242,7 +242,7 @@ const args: TAppArg<boolean | number | string | unknown[]>[] = [
 		describe: 'Will fetch the chapters and add them into the final video',
 		type: 'boolean',
 		group: 'dl',
-		service: ['crunchy', 'adn'],
+		service: ['crunchy', 'hidive', 'adn'],
 		docDescribe: 'Will fetch the chapters and add them into the final video.',
 		usage: '',
 		default: {

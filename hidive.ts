@@ -19,6 +19,7 @@ import vtt2ass from './modules/module.vtt2ass';
 import { applyAssFixes } from './modules/module.assFix';
 import { downloadAllFonts, downloadFonts, fontFilesFor } from './modules/module.fontDownload';
 import { substituteMissingFonts } from './modules/module.fontLocal';
+import { buildHidiveChapters } from './modules/module.hidiveChapters';
 import Helper from './modules/module.helper';
 
 // load req
@@ -670,7 +671,7 @@ export default class Hidive implements ServiceClass {
 		console.info(`[INFO] Selected dub(s): ${options.dubLang.join(', ')}`);
 		const baseUrl = playbackData.dash[0].url.split('master')[0];
 		const parsedmpd = await parse(mpd, undefined, baseUrl);
-		const res = await this.downloadMPD(parsedmpd, availableSubs, selectedEpisode, options);
+		const res = await this.downloadMPD(parsedmpd, availableSubs, selectedEpisode, options, playbackData.skipMarkers);
 		if (res === undefined || res.error) {
 			console.error('Failed to download media list');
 			return { isOk: false, reason: new Error('Failed to download media list') };
@@ -763,7 +764,7 @@ export default class Hidive implements ServiceClass {
 		console.info(`[INFO] Selected dub(s): ${options.dubLang.join(', ')}`);
 		const baseUrl = playbackData.dash[0].url.split('master')[0];
 		const parsedmpd = await parse(mpd, undefined, baseUrl);
-		const res = await this.downloadMPD(parsedmpd, availableSubs, selectedEpisode, options);
+		const res = await this.downloadMPD(parsedmpd, availableSubs, selectedEpisode, options, playbackData.skipMarkers);
 		if (res === undefined || res.error) {
 			console.error('Failed to download media list');
 			return { isOk: false, reason: new Error('Failed to download media list') };
@@ -785,7 +786,7 @@ export default class Hidive implements ServiceClass {
 		}
 	}
 
-	public async downloadMPD(streamPlaylists: MPDParsed, subs: Subtitle[], selectedEpisode: NewHidiveEpisodeExtra, options: Record<any, any>) {
+	public async downloadMPD(streamPlaylists: MPDParsed, subs: Subtitle[], selectedEpisode: NewHidiveEpisodeExtra, options: Record<any, any>, skipMarkers: unknown[] = []) {
 		//let fileName: string;
 		const files: DownloadedMedia[] = [];
 		const variables: Variable[] = [];
@@ -912,6 +913,32 @@ export default class Hidive implements ServiceClass {
 		console.info(`Selected quality: \n\tVideo: ${chosenVideoSegments.resolutionText}\n\tAudio: ${chosenAudios[0].resolutionText}\n\tServer: ${selectedServer}`);
 		console.info(`Selected (Available) Audio Languages: ${chosenAudios.map((a) => a.language.name).join(', ')}`);
 		console.info('Stream URL:', chosenVideoSegments.segments[0].map.uri.split('/init.mp4')[0]);
+
+		// Chapters from the HIDIVE skip markers (intro / credits)
+		if (options.chapters) {
+			if (this.debug) console.debug('[DEBUG] Skip markers:', JSON.stringify(skipMarkers));
+			const rawDuration = (selectedEpisode as { duration?: number }).duration;
+			const durationSec = rawDuration && rawDuration > 0 ? (rawDuration > 36000 ? rawDuration / 1000 : rawDuration) : undefined;
+			const chapterLines = buildHidiveChapters(skipMarkers, durationSec);
+			if (chapterLines.length > 0) {
+				const chapterBase = path.isAbsolute(fileName) ? fileName : path.join(this.cfg.dir.content, fileName);
+				try {
+					if (!fs.existsSync(path.dirname(chapterBase))) fs.mkdirSync(path.dirname(chapterBase), { recursive: true });
+					fs.writeFileSync(`${chapterBase}.chapters.txt`, chapterLines.join('\r\n'));
+					files.push({ type: 'Chapters', path: `${chapterBase}.chapters.txt`, lang: chosenAudios[0].language });
+					console.info(
+						`Chapters: ${chapterLines
+							.filter((l) => l.includes('NAME='))
+							.map((l) => l.split('NAME=')[1])
+							.join(', ')}`
+					);
+				} catch {
+					console.error('Failed to write chapter file');
+				}
+			} else {
+				console.info('No chapter markers provided by HIDIVE for this episode');
+			}
+		}
 
 		if ((chosenAudios[0].pssh_wvd && cdm === 'widevine') || (chosenVideoSegments.pssh_wvd && cdm === 'widevine')) {
 			encryptionKeys = await getKeysWVD(chosenVideoSegments.pssh_wvd, 'https://shield-drm.imggaming.com/api/v2/license', {
@@ -1262,6 +1289,12 @@ export default class Hidive implements ServiceClass {
 					return !a.uncut as boolean;
 				})[0],
 			fonts: Merger.makeFontsList(this.cfg.dir.fonts, subsForFonts),
+			chapters: data
+				.filter((a) => a.type === 'Chapters')
+				.map((a): MergerInput => {
+					if (a.type !== 'Chapters') throw new Error('Never');
+					return { path: a.path, lang: a.lang };
+				}),
 			videoAndAudio: hasAudioStreams
 				? []
 				: data

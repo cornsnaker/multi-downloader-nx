@@ -57,6 +57,11 @@ export type DownloadedMedia =
 			path: string;
 			uncut: boolean;
 	  }
+	| {
+			type: 'Chapters';
+			lang: LanguageItem;
+			path: string;
+	  }
 	| ({
 			type: 'Subtitle';
 			cc: boolean;
