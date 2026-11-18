@@ -20,6 +20,7 @@ import { applyAssFixes } from './modules/module.assFix';
 import { downloadAllFonts, downloadFonts, fontFilesFor } from './modules/module.fontDownload';
 import { substituteMissingFonts } from './modules/module.fontLocal';
 import { buildHidiveChapters } from './modules/module.hidiveChapters';
+import { findSigns } from './modules/module.assSigns';
 import Helper from './modules/module.helper';
 
 // load req
@@ -1177,6 +1178,7 @@ export default class Hidive implements ServiceClass {
 							let sBody = await getVttContent.res.text();
 
 							console.info(`Subtitle Downloaded: ${sub.url}`);
+							let signsAss: string | undefined;
 
 							if (!options.noASSConv) {
 								sBody = vtt2ass(undefined, chosenFontSize, sBody, '', subsMargin, options.fontName, options.combineLines);
@@ -1196,6 +1198,17 @@ export default class Hidive implements ServiceClass {
 								}
 								sxData.title = subLang.language ?? subLang.name;
 								sxData.fonts = fontsData.assFonts(sBody) as Font[];
+								// Find sign / on-screen text lines (tagged with Name "Sign") for a separate signs track
+								const signs = findSigns(sBody);
+								sBody = signs.ass;
+								if (signs.count > 0) {
+									console.info(
+										`Signs: ${signs.count} line(s) found${signs.signStyles.length > 0 ? `, sign styles: ${signs.signStyles.join(', ')}` : ''} (dialogue style: ${signs.dialogueStyle})`
+									);
+									signsAss = signs.signsAss;
+								} else {
+									console.info('Signs: no sign lines found');
+								}
 								console.info(`Subtitle converted: ${sxData.file}`);
 							} else {
 								// Yeah, whatever
@@ -1208,6 +1221,21 @@ export default class Hidive implements ServiceClass {
 								...(sxData as sxItem),
 								cc: false
 							});
+							if (signsAss && options.signsTrack) {
+								const signsFile = langsData.subsFile(fileName as string, subIndex + '', subLang, false, options.ccTag, true);
+								const signsPath = path.isAbsolute(signsFile) ? signsFile : path.join(this.cfg.dir.content, signsFile);
+								fs.writeFileSync(signsPath, signsAss);
+								files.push({
+									type: 'Subtitle',
+									...(sxData as sxItem),
+									file: signsFile,
+									path: signsPath,
+									title: `${sxData.title} Signs`,
+									cc: false,
+									signs: true
+								});
+								console.info(`Signs subtitle created: ${signsFile}`);
+							}
 						} else {
 							console.warn(`Failed to download subtitle: ${sxData.file}`);
 							options.subdlfailed = true;
@@ -1279,7 +1307,8 @@ export default class Hidive implements ServiceClass {
 					return {
 						file: a.path,
 						language: a.language,
-						closedCaption: a.cc
+						closedCaption: a.cc,
+						signs: a.signs
 					};
 				}),
 			simul: data

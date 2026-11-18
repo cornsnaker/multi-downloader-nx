@@ -763,6 +763,18 @@ const args: TAppArg<boolean | number | string | unknown[]>[] = [
 		usage: '${fontName}'
 	},
 	{
+		name: 'signsTrack',
+		group: 'dl',
+		describe: 'Add an extra subtitle track that only contains the signs / on-screen text (useful with dubbed audio)',
+		docDescribe: true,
+		service: ['hidive'],
+		type: 'boolean',
+		usage: '',
+		default: {
+			default: true
+		}
+	},
+	{
 		name: 'noFontSubstitute',
 		group: 'fonts',
 		describe: 'Keep subtitle fonts that are not available for download instead of replacing them with a similar font',

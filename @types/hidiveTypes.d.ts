@@ -65,4 +65,5 @@ export type DownloadedMedia =
 	| ({
 			type: 'Subtitle';
 			cc: boolean;
+			signs?: boolean;
 	  } & sxItem);

@@ -292,10 +292,14 @@ class Merger {
 				);
 				args.push('--language', `0:"${subObj.language.code}"`);
 				//TODO: look into making Closed Caption default if it's the only sub of the default language downloaded
-				if (this.options.defaults.sub.code === subObj.language.code && !subObj.closedCaption) {
+				if (this.options.defaults.sub.code === subObj.language.code && !subObj.closedCaption && !subObj.signs) {
 					args.push('--default-track 0');
 				} else {
 					args.push('--default-track 0:0');
+				}
+				if (subObj.signs) {
+					// signs-only tracks are meant to be shown automatically with dubbed audio
+					args.push('--forced-display-flag 0:yes');
 				}
 				args.push(`"${subObj.file}"`);
 			}
