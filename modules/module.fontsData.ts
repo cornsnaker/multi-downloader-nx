@@ -73,21 +73,64 @@ const fontFamilies = {
 	Webdings: ['webdings.ttf']
 };
 
-// collect styles from ass string
+// case-insensitive lookup table: "arial" -> "Arial"
+const fontFamiliesLower: Record<string, keyof typeof fontFamilies> = Object.fromEntries(
+	(Object.keys(fontFamilies) as (keyof typeof fontFamilies)[]).map((name) => [name.toLowerCase(), name])
+);
+
+// resolve a font name to its canonical fontFamilies key (or keep it as-is if unknown)
+function canonicalFont(name: string): string {
+	const clean = name.trim().replace(/^@/, '');
+	return fontFamiliesLower[clean.toLowerCase()] ?? clean;
+}
+
+// add the bold / italic font file variants that libass will look for
+function addVariants(out: Set<string>, family: string, bold: boolean, italic: boolean) {
+	out.add(canonicalFont(family));
+	const candidates: string[] = [];
+	if (bold && italic) candidates.push(`${family} Bold Italic`, `${family} Bold Oblique`);
+	if (bold) candidates.push(`${family} Bold`);
+	if (italic) candidates.push(`${family} Italic`, `${family} Oblique`);
+	for (const c of candidates) {
+		const known = fontFamiliesLower[c.toLowerCase()];
+		if (known) out.add(known);
+	}
+}
+
+// ASS booleans are -1/1 (true) or 0 (false); \b also accepts weights like \b700
+const isOn = (v: string | undefined) => v !== undefined && v.trim() !== '' && v.trim() !== '0';
+
+// collect the fonts (including bold/italic variants) used by an ass string
 function assFonts(ass: string) {
 	const strings = ass.replace(/\r/g, '').split('\n');
-	const styles: string[] = [];
+	const fonts = new Set<string>();
+	const styles: Record<string, { font: string; bold: boolean; italic: boolean }> = {};
 	for (const s of strings) {
-		if (s.match(/^Style: /)) {
-			const addStyle = s.split(',');
-			styles.push(addStyle[1]);
+		if (s.match(/^Style:\s*/)) {
+			// Style: Name, Fontname, Fontsize, Primary, Secondary, Outline, Back, Bold, Italic, ...
+			const addStyle = s.replace(/^Style:\s*/, '').split(',');
+			const style = { font: addStyle[1]?.trim() ?? '', bold: isOn(addStyle[7]), italic: isOn(addStyle[8]) };
+			if (!style.font) continue;
+			styles[addStyle[0].trim()] = style;
+			addVariants(fonts, style.font, style.bold, style.italic);
 		}
 	}
-	const fontMatches = ass.matchAll(/\\fn([^\\}]+)/g);
-	for (const match of fontMatches) {
-		styles.push(match[1]);
+	for (const s of strings) {
+		if (!s.startsWith('Dialogue:')) continue;
+		// Dialogue: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+		const parts = s.split(',');
+		const text = parts.slice(9).join(',');
+		if (!text.includes('{')) continue;
+		const lineStyle = styles[parts[3]?.trim()];
+		const lineFonts = [...text.matchAll(/\\fn([^\\}]+)/g)].map((m) => m[1].trim());
+		const bold = /\\b[1-9]/.test(text);
+		const italic = /\\i1/.test(text);
+		if (lineStyle) lineFonts.push(lineStyle.font);
+		for (const f of lineFonts) {
+			addVariants(fonts, f, bold || !!lineStyle?.bold, italic || !!lineStyle?.italic);
+		}
 	}
-	return [...new Set(styles)];
+	return [...fonts];
 }
 
 // font mime type
@@ -104,4 +147,4 @@ function fontMime(fontFile: string) {
 export type AvailableFonts = keyof typeof fontFamilies;
 
 // output
-export { root, fontFamilies, assFonts, fontMime };
+export { root, fontFamilies, assFonts, fontMime, canonicalFont };

@@ -68,7 +68,7 @@ const args: TAppArg<boolean | number | string | unknown[]>[] = [
 		group: 'fonts',
 		describe: 'Download all required fonts for mkv muxing',
 		docDescribe: 'Crunchyroll uses a variaty of fonts for the subtitles.' + '\nUse this command to download all the fonts and add them to the muxed **mkv** file.',
-		service: ['crunchy'],
+		service: ['crunchy', 'hidive'],
 		type: 'boolean',
 		usage: ''
 	},
@@ -400,7 +400,7 @@ const args: TAppArg<boolean | number | string | unknown[]>[] = [
 		group: 'dl',
 		describe: 'Disables all subtitle fixes and downloads raw subtitles.',
 		docDescribe: true,
-		service: ['crunchy'],
+		service: ['crunchy', 'hidive'],
 		type: 'boolean',
 		usage: '',
 		default: {
@@ -424,7 +424,7 @@ const args: TAppArg<boolean | number | string | unknown[]>[] = [
 		group: 'dl',
 		describe: 'Applies the LayoutRes Fix to all ASS subtitles.',
 		docDescribe: true,
-		service: ['crunchy'],
+		service: ['crunchy', 'hidive'],
 		type: 'boolean',
 		usage: '',
 		default: {
@@ -436,7 +436,7 @@ const args: TAppArg<boolean | number | string | unknown[]>[] = [
 		group: 'dl',
 		describe: 'Applies the ScaledBorderAndShadow Fix to all ASS subtitles.',
 		docDescribe: true,
-		service: ['crunchy'],
+		service: ['crunchy', 'hidive'],
 		type: 'boolean',
 		usage: '',
 		default: {
@@ -446,7 +446,7 @@ const args: TAppArg<boolean | number | string | unknown[]>[] = [
 	{
 		name: 'scaledBorderAndShadow',
 		group: 'dl',
-		service: ['crunchy'],
+		service: ['crunchy', 'hidive'],
 		type: 'string',
 		describe: 'Select if ScaledBorderAndShadow should be set to "yes" or "no".',
 		choices: ['yes', 'no'],

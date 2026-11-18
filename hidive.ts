@@ -16,6 +16,8 @@ import * as yamlCfg from './modules/module.cfg-loader';
 import * as yargs from './modules/module.app-args';
 import Merger, { Font, MergerInput, SubtitleInput } from './modules/module.merger';
 import vtt2ass from './modules/module.vtt2ass';
+import { applyAssFixes } from './modules/module.assFix';
+import { downloadAllFonts, downloadFonts, fontFilesFor } from './modules/module.fontDownload';
 import Helper from './modules/module.helper';
 
 // load req
@@ -67,7 +69,9 @@ export default class Hidive implements ServiceClass {
 		if (argv.allDubs) {
 			argv.dubLang = langsData.dubLanguageCodes;
 		}
-		if (argv.auth) {
+		if (argv.dlFonts) {
+			await downloadAllFonts(this.cfg.dir.fonts, this.req);
+		} else if (argv.auth) {
 			//Authenticate
 			await this.doAuth({
 				username: argv.username ?? (await Helper.question('[Q] LOGIN/EMAIL: ')),
@@ -1146,7 +1150,17 @@ export default class Hidive implements ServiceClass {
 
 							if (!options.noASSConv) {
 								sBody = vtt2ass(undefined, chosenFontSize, sBody, '', subsMargin, options.fontName, options.combineLines);
-								sxData.title = `${subLang.language} / ${sxData.title}`;
+								if (!options.noSubFix) {
+									// Same ASS clean-up as Crunchyroll (LayoutRes, ScaledBorderAndShadow, ...)
+									sBody = applyAssFixes(sBody, {
+										playResX: Number(sBody.match(/^PlayResX:\s*(\d+)/m)?.[1] ?? 1280),
+										playResY: Number(sBody.match(/^PlayResY:\s*(\d+)/m)?.[1] ?? 720),
+										layoutResFix: options.layoutResFix,
+										scaledBorderAndShadowFix: options.scaledBorderAndShadowFix,
+										scaledBorderAndShadow: options.scaledBorderAndShadow
+									});
+								}
+								sxData.title = subLang.language ?? subLang.name;
 								sxData.fonts = fontsData.assFonts(sBody) as Font[];
 								console.info(`Subtitle converted: ${sxData.file}`);
 							} else {
@@ -1189,6 +1203,12 @@ export default class Hidive implements ServiceClass {
 		if (options.subdlfailed && options.skipMuxOnSubFail) return console.info('Skip muxing since some subtitles failed to download');
 		if (data.some((a) => a.type === 'Audio')) {
 			hasAudioStreams = true;
+		}
+		// Fonts are only attached when they exist in the fonts dir, so fetch the ones the subtitles need first.
+		// Without this, HIDIVE files were muxed with --no-attachments unless --dlFonts had been run before.
+		const subsForFonts = data.filter((a) => a.type === 'Subtitle') as sxItem[];
+		if (!options.mp4 && !options.skipSubMux && subsForFonts.length > 0) {
+			await downloadFonts(this.cfg.dir.fonts, fontFilesFor(subsForFonts.flatMap((s) => s.fonts ?? [])), this.req, true);
 		}
 		const merger = new Merger({
 			onlyVid: hasAudioStreams
@@ -1234,7 +1254,7 @@ export default class Hidive implements ServiceClass {
 					if (a.type === 'Subtitle') throw new Error('Never');
 					return !a.uncut as boolean;
 				})[0],
-			fonts: Merger.makeFontsList(this.cfg.dir.fonts, data.filter((a) => a.type === 'Subtitle') as sxItem[]),
+			fonts: Merger.makeFontsList(this.cfg.dir.fonts, subsForFonts),
 			videoAndAudio: hasAudioStreams
 				? []
 				: data
