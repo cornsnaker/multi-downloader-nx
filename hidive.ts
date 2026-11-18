@@ -71,8 +71,10 @@ export default class Hidive implements ServiceClass {
 			argv.dubLang = langsData.dubLanguageCodes;
 		}
 		if (argv.dlFonts) {
+			// Not exclusive: `--dlFonts -s <id> -e <ep>` downloads the fonts and then the episode
 			await downloadAllFonts(this.cfg.dir.fonts, this.req);
-		} else if (argv.auth) {
+		}
+		if (argv.auth) {
 			//Authenticate
 			await this.doAuth({
 				username: argv.username ?? (await Helper.question('[Q] LOGIN/EMAIL: ')),
