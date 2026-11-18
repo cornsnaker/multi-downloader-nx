@@ -133,13 +133,16 @@ function assFonts(ass: string) {
 	return [...fonts];
 }
 
-// font mime type
+// font mime type (case-insensitive, e.g. MANGAL.TTF)
 function fontMime(fontFile: string) {
-	if (fontFile.match(/\.otf$/)) {
+	if (fontFile.match(/\.otf$/i)) {
 		return 'application/vnd.ms-opentype';
 	}
-	if (fontFile.match(/\.ttf$/)) {
+	if (fontFile.match(/\.ttf$/i)) {
 		return 'application/x-truetype-font';
+	}
+	if (fontFile.match(/\.(ttc|otc)$/i)) {
+		return 'font/collection';
 	}
 	return 'application/octet-stream';
 }

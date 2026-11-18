@@ -1,5 +1,6 @@
 import * as iso639 from 'iso-639';
 import { fontFamilies, fontMime } from './module.fontsData';
+import { scanLocalFonts } from './module.fontLocal';
 import path from 'path';
 import fs from 'fs';
 import fsp from 'fs/promises';
@@ -376,21 +377,29 @@ class Merger {
 		if (fontsNameList.length > 0) {
 			console.info((isNstr ? '\n' : '') + 'Required fonts: %s (Total: %s)', fontsNameList.join(', '), fontsNameList.length);
 		}
+		const localFonts = scanLocalFonts(fontsDir);
+		const missing: string[] = [];
 		for (const f of fontsNameList) {
-			const fontFiles = fontFamilies[f];
-			if (fontFiles) {
-				for (const fontFile of fontFiles) {
-					const fontPath = path.join(fontsDir, fontFile);
-					const mime = fontMime(fontFile);
-					if (fs.existsSync(fontPath) && fs.statSync(fontPath).size != 0) {
-						fontsList.push({
-							name: fontFile,
-							path: fontPath,
-							mime: mime
-						});
-					}
+			// Crunchyroll CDN font files first, then any user supplied font file whose family name matches
+			const fontFiles = [...(fontFamilies[f] ?? []), ...(localFonts[(f as string).toLowerCase()] ?? [])];
+			let found = false;
+			for (const fontFile of fontFiles) {
+				const fontPath = path.join(fontsDir, fontFile);
+				const mime = fontMime(fontFile);
+				if (fs.existsSync(fontPath) && fs.statSync(fontPath).size != 0) {
+					found = true;
+					if (fontsList.some((a) => a.name === fontFile)) continue;
+					fontsList.push({
+						name: fontFile,
+						path: fontPath,
+						mime: mime
+					});
 				}
 			}
+			if (!found) missing.push(f);
+		}
+		if (missing.length > 0) {
+			console.warn(`Fonts not found in ${fontsDir}: ${missing.join(', ')}`);
 		}
 		return fontsList;
 	}

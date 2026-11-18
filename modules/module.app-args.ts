@@ -78,6 +78,7 @@ export let argvC: {
 	service: 'crunchy' | 'hidive' | 'adn';
 	update: boolean;
 	fontName: string | undefined;
+	noFontSubstitute: boolean;
 	_: (string | number)[];
 	$0: string;
 	dlVideoOnce: boolean;

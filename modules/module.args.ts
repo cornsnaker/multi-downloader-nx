@@ -763,6 +763,20 @@ const args: TAppArg<boolean | number | string | unknown[]>[] = [
 		usage: '${fontName}'
 	},
 	{
+		name: 'noFontSubstitute',
+		group: 'fonts',
+		describe: 'Keep subtitle fonts that are not available for download instead of replacing them with a similar font',
+		docDescribe:
+			'HIDIVE subtitles use fonts like "Swis721 BT" that cannot be downloaded. By default these are replaced with a similar font (e.g. Arial) so the muxed file looks the same everywhere.' +
+			'\nPut the original font files into the fonts folder to have them attached instead.',
+		service: ['hidive'],
+		type: 'boolean',
+		usage: '',
+		default: {
+			default: false
+		}
+	},
+	{
 		name: 'but',
 		describe: 'Download everything but the -e selection',
 		docDescribe: true,

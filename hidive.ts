@@ -18,6 +18,7 @@ import Merger, { Font, MergerInput, SubtitleInput } from './modules/module.merge
 import vtt2ass from './modules/module.vtt2ass';
 import { applyAssFixes } from './modules/module.assFix';
 import { downloadAllFonts, downloadFonts, fontFilesFor } from './modules/module.fontDownload';
+import { substituteMissingFonts } from './modules/module.fontLocal';
 import Helper from './modules/module.helper';
 
 // load req
@@ -1159,6 +1160,10 @@ export default class Hidive implements ServiceClass {
 										scaledBorderAndShadowFix: options.scaledBorderAndShadowFix,
 										scaledBorderAndShadow: options.scaledBorderAndShadow
 									});
+								}
+								if (!options.noFontSubstitute) {
+									// Fonts like "Swis721 BT" are not downloadable; swap them for a close match unless the user supplied them
+									sBody = substituteMissingFonts(sBody, this.cfg.dir.fonts);
 								}
 								sxData.title = subLang.language ?? subLang.name;
 								sxData.fonts = fontsData.assFonts(sBody) as Font[];
