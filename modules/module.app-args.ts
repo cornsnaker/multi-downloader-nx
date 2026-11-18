@@ -79,6 +79,7 @@ export let argvC: {
 	update: boolean;
 	fontName: string | undefined;
 	noFontSubstitute: boolean;
+	signsTrack: boolean;
 	_: (string | number)[];
 	$0: string;
 	dlVideoOnce: boolean;

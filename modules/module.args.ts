@@ -242,7 +242,7 @@ const args: TAppArg<boolean | number | string | unknown[]>[] = [
 		describe: 'Will fetch the chapters and add them into the final video',
 		type: 'boolean',
 		group: 'dl',
-		service: ['crunchy', 'adn'],
+		service: ['crunchy', 'hidive', 'adn'],
 		docDescribe: 'Will fetch the chapters and add them into the final video.',
 		usage: '',
 		default: {
@@ -761,6 +761,18 @@ const args: TAppArg<boolean | number | string | unknown[]>[] = [
 		service: ['hidive', 'adn'],
 		type: 'string',
 		usage: '${fontName}'
+	},
+	{
+		name: 'signsTrack',
+		group: 'dl',
+		describe: 'Add an extra subtitle track that only contains the signs / on-screen text (useful with dubbed audio)',
+		docDescribe: true,
+		service: ['hidive'],
+		type: 'boolean',
+		usage: '',
+		default: {
+			default: true
+		}
 	},
 	{
 		name: 'noFontSubstitute',
