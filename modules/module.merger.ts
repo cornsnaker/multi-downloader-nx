@@ -381,7 +381,8 @@ class Merger {
 		const missing: string[] = [];
 		for (const f of fontsNameList) {
 			// Crunchyroll CDN font files first, then any user supplied font file whose family name matches
-			const fontFiles = [...(fontFamilies[f] ?? []), ...(localFonts[(f as string).toLowerCase()] ?? [])];
+			// (local files are only used for fonts the CDN does not provide, so known fonts are not attached twice)
+			const fontFiles = fontFamilies[f] ?? localFonts[(f as string).toLowerCase()] ?? [];
 			let found = false;
 			for (const fontFile of fontFiles) {
 				const fontPath = path.join(fontsDir, fontFile);
