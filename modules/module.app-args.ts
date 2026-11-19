@@ -80,6 +80,7 @@ export let argvC: {
 	fontName: string | undefined;
 	noFontSubstitute: boolean;
 	signsTrack: boolean;
+	legacyStreams: boolean;
 	_: (string | number)[];
 	$0: string;
 	dlVideoOnce: boolean;
