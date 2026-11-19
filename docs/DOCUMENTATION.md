@@ -356,6 +356,12 @@ Set the time the program waits between downloads. Set in millisecods
 | Hidive | `--simul ` | `boolean` | `No`| `NaN` | `false`| `simul: ` |
 
 Force downloading simulcast version instead of uncut version (if available).
+#### `--legacyStreams`
+| **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
+| --- | --- | --- | --- | --- | --- | ---| 
+| Crunchyroll | `--legacyStreams ` | `boolean` | `No`| `NaN` | `true`| `legacyStreams: ` |
+
+Also list the older "Legacy" Crunchyroll video encodes, which often have a higher bitrate (-q 0 picks the highest)
 #### `--signsTrack`
 | **Service** | **Usage** | **Type** | **Required** | **Alias** |  **Default** |**cli-default Entry**
 | --- | --- | --- | --- | --- | --- | ---| 
