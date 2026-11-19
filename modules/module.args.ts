@@ -763,6 +763,18 @@ const args: TAppArg<boolean | number | string | unknown[]>[] = [
 		usage: '${fontName}'
 	},
 	{
+		name: 'legacyStreams',
+		group: 'dl',
+		describe: 'Also list the older "Legacy" Crunchyroll video encodes, which often have a higher bitrate (-q 0 picks the highest)',
+		docDescribe: true,
+		service: ['crunchy'],
+		type: 'boolean',
+		usage: '',
+		default: {
+			default: true
+		}
+	},
+	{
 		name: 'signsTrack',
 		group: 'dl',
 		describe: 'Add an extra subtitle track that only contains the signs / on-screen text (useful with dubbed audio)',

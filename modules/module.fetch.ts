@@ -22,6 +22,8 @@ export type Params = {
 
 type CustomParams = {
 	useProxy: boolean;
+	/** do not log failed requests (for optional requests) */
+	quiet: boolean;
 };
 
 type GetDataResponse = {
@@ -90,7 +92,7 @@ export class Req {
 
 		try {
 			const res = await fetch(durl, { ...options, dispatcher });
-			if (!res.ok) {
+			if (!res.ok && !params.quiet) {
 				console.error(`${res.status}: ${res.statusText}`);
 				const body = await res.text();
 				const docTitle = body.match(/<title>(.*)<\/title>/);
@@ -142,12 +144,14 @@ export class Req {
 			} & TypeError & {
 					res: Response;
 				};
-			if (error.res && error.res.status && error.res.statusText) {
+			if (params.quiet) {
+				// optional request, failure is expected
+			} else if (error.res && error.res.status && error.res.statusText) {
 				console.error(`${error.name} ${error.res.status}: ${error.res.statusText}`);
 			} else {
 				console.error(`${error.name}: ${error.res?.statusText || error.message}`);
 			}
-			if (error.res) {
+			if (error.res && !params.quiet) {
 				const body = await error.res.text();
 				const docTitle = body.match(/<title>(.*)<\/title>/);
 				if (body && docTitle) {

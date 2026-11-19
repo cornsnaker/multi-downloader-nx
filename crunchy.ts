@@ -39,6 +39,7 @@ import { AndroidObject, CrunchyAndroidObject, CrunchyMVObject } from './@types/c
 import { CrunchyChapters, CrunchyChapter, CrunchyOldChapter } from './@types/crunchyChapters';
 import vtt2ass from './modules/module.vtt2ass';
 import { applyAssFixes } from './modules/module.assFix';
+import { fetchLegacyManifests } from './modules/module.crunchyLegacy';
 import { downloadAllFonts } from './modules/module.fontDownload';
 import { CrunchyPlayStream } from './@types/crunchyPlayStreams';
 import { CrunchyVideoPlayStreams, CrunchyAudioPlayStreams } from './@types/enums';
@@ -2105,9 +2106,32 @@ export default class Crunchy implements ServiceClass {
 						const videos = vselectedList.video.map((item) => {
 							return {
 								...item,
-								resolutionText: `${item.quality.width}x${item.quality.height} (${Math.round(item.bandwidth / 1024)}KiB/s)`
+								resolutionText: `${item.quality.width}x${item.quality.height} (${Math.round(item.bandwidth / 1024)}KiB/s) [Current]`
 							};
 						});
+
+						// Add the older, higher bitrate "Legacy" encodes when Crunchyroll still serves them
+						if (options.legacyStreams) {
+							const legacy = await fetchLegacyManifests(
+								this.req,
+								vcurStream.url,
+								AuthHeaders,
+								langsData.findLang(langsData.fixLanguageTag(pbData.meta.audio_locale as string) || ''),
+								this.debug
+							);
+							for (const { family, playlists } of legacy) {
+								const servers = Object.keys(playlists);
+								const server = servers[options.x - 1] ?? servers[0];
+								for (const item of playlists[server]?.video ?? []) {
+									if (!item.quality || !item.bandwidth || !item.segments?.length || !item.segments[0].map) continue;
+									videos.push({
+										...item,
+										resolutionText: `${item.quality.width}x${item.quality.height} (${Math.round(item.bandwidth / 1024)}KiB/s) [${family}]`
+									});
+								}
+							}
+							if (legacy.length > 0) console.info(`Legacy encodes found: ${legacy.map((l) => l.family).join(', ')}`);
+						}
 
 						const audios = aselectedList.audio.map((item) => {
 							return {

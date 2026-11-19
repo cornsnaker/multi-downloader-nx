@@ -51,6 +51,7 @@ export type CrunchyDownloadOptions = {
 	layoutResFix: boolean;
 	scaledBorderAndShadowFix: boolean;
 	scaledBorderAndShadow: 'yes' | 'no';
+	legacyStreams: boolean;
 	originalScriptFix: boolean;
 	subtitleTimestampFix: boolean;
 };
