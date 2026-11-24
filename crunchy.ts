@@ -1821,10 +1821,27 @@ export default class Crunchy implements ServiceClass {
 			}
 
 			if (!options.cstream && options.vstream !== options.astream && videoStream) {
-				const audioPlaybackReq = await this.req.getData(
-					`https://cr-play-service.prd.crunchyrollsvc.com/v3/${currentVersion ? currentVersion.guid : currentMediaId}/${CrunchyAudioPlayStreams[options.astream]}/${isDLAudioBypass ? 'download' : 'play?queue=1'}`,
-					AuthHeaders
-				);
+				const audioContentId = currentVersion ? currentVersion.guid : currentMediaId;
+				let audioEndpoint = options.astream as keyof typeof CrunchyAudioPlayStreams;
+				const requestAudio = () =>
+					this.req.getData(
+						`https://cr-play-service.prd.crunchyrollsvc.com/v3/${audioContentId}/${CrunchyAudioPlayStreams[audioEndpoint]}/${isDLAudioBypass ? 'download' : 'play?queue=1'}`,
+						{ headers: { ...(AuthHeaders.headers as Record<string, string>), Authorization: `Bearer ${this.token.access_token}` } }
+					);
+				let audioPlaybackReq = await requestAudio();
+				if ((!audioPlaybackReq.ok || !audioPlaybackReq.res) && isDLAudioBypass) {
+					// The 192 kb/s download endpoint sometimes rejects the token ("Outdated Token", 40016).
+					// Refresh the token and try once more, then fall back to the 128 kb/s androidtv audio.
+					console.warn('192 kb/s audio request failed, refreshing token and retrying...');
+					await this.refreshToken(false, true);
+					audioPlaybackReq = await requestAudio();
+					if (!audioPlaybackReq.ok || !audioPlaybackReq.res) {
+						console.warn('192 kb/s audio is not available right now, falling back to 128 kb/s (androidtv) audio.');
+						isDLAudioBypass = false;
+						audioEndpoint = 'androidtv';
+						audioPlaybackReq = await requestAudio();
+					}
+				}
 				if (!audioPlaybackReq.ok || !audioPlaybackReq.res) {
 					console.warn('Request Audio Stream URLs FAILED!');
 				} else {
@@ -1860,7 +1877,7 @@ export default class Crunchy implements ServiceClass {
 						subtitles: audioStream.subtitles,
 						versions: audioStream.versions
 					};
-					pbData.apb[`adaptive_${options.astream}_${audioStream.url.includes('m3u8') ? 'hls' : 'dash'}_drm`] = {
+					pbData.apb[`adaptive_${audioEndpoint}_${audioStream.url.includes('m3u8') ? 'hls' : 'dash'}_drm`] = {
 						...derivedPlaystreams
 					};
 				}
