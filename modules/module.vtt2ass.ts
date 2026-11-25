@@ -447,6 +447,12 @@ function convertLine(css: Record<string, string>, l: Record<any, any>) {
 		const line = parseInt(l.time.ext.line);
 		const PosY = line < 0 ? (720 / 100) * (100 - line) : ((720 - sMinus) / 100) * line;
 		txt.text = `{\\pos(640,${parseFloat(PosY.toFixed(3))})}${txt.text}`;
+	} else if (l.time.ext?.line !== undefined && parseInt(l.time.ext.line) >= 0 && parseInt(l.time.ext.line) < 50) {
+		// Cue placed in the top half (e.g. HIDIVE location captions and title cards with line:24%).
+		// Without this the position was dropped and the text was drawn at the bottom over the dialogue.
+		// WebVTT puts the top of the cue at the line value, so anchor at top center.
+		const PosY = (720 / 100) * parseInt(l.time.ext.line);
+		txt.text = `{\\an8\\pos(640,${parseFloat(PosY.toFixed(3))})}${txt.text}`;
 	} else {
 		const indregx = txt.style.match(/(.*)_(\d+)$/);
 		if (indregx !== null) {
